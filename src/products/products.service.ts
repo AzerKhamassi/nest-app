@@ -7,9 +7,9 @@ import { Model, isValidObjectId } from 'mongoose';
 export class ProductsService {
     constructor(@InjectModel('Product') private readonly productModel: Model<Product>) { }
 
-    addProduct = async (name: string, price: number, description: string) => {
+    addProduct = async (name: string, price: number, description: string, ownerId: string) => {
         try {
-            const newProduct = new this.productModel({ name, price, description })
+            const newProduct = new this.productModel({ name, price, description, ownerId })
             const createdProduct = await newProduct.save()
             return createdProduct
 
@@ -45,6 +45,37 @@ export class ProductsService {
             return new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR)
         }
     }
+
+    getProdcutsByOwner = async (ownerId: string) => {
+        try {
+            const products = await this.productModel.find({ ownerId }).exec()
+            return products
+        } catch (error) {
+            return new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+    updateProduct = async (body: any, productId: string) => {
+        try {
+            const updateOps = {};
+            for (const ops of body) {
+                updateOps[ops.propName] = ops.value;
+            }
+            const updatedProduct = await this.productModel.findOneAndUpdate(
+                { _id: productId },
+                { $set: updateOps },
+                { new: true }
+            );
+            if (!updatedProduct)
+                return new HttpException('Could not find product!', HttpStatus.NOT_FOUND)
+            else
+                return updatedProduct
+        } catch (error) {
+            return new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+
 
     deleteProduct = async (productId: string) => {
         try {
