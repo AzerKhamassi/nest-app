@@ -1,7 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Product } from './product.model';
-import { Model, isValidObjectId } from 'mongoose';
+import { Model, isValidObjectId, Types } from 'mongoose';
 
 @Injectable()
 export class ProductsService {
@@ -22,7 +22,17 @@ export class ProductsService {
 
     getProdcuts = async () => {
         try {
-            const products = await this.productModel.find().exec()
+            const products = await this.productModel
+                // .find()
+                .aggregate([
+                    { $match: { price: { $gte: 60 } } },
+                    // { $group: { _id: { pr: "$price", name: "$name" }, totalPrice: { $sum: "$price" } } },
+                    // { $group: { _id: "$price", count: { $sum: 1 } } },
+                    //     { $project: { _id: 0 } },
+                    // { $count: "total" }
+                    //     { $sort: { "_id.pr": 1 } }
+                ])
+                .exec()
             return products
         } catch (error) {
             return new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR)
@@ -32,7 +42,13 @@ export class ProductsService {
     getProduct = async (productId: string) => {
         try {
             if (isValidObjectId(productId)) {
-                const product = await this.productModel.findOne({ _id: productId }).exec()
+                const product = await this.productModel
+                    // .aggregate([
+                    // { $match: { _id: new Types.ObjectId(productId) } },
+                    // { $limit: 1 }
+                    // ])
+                    .findOne({ _id: productId })
+                    .exec()
                 if (!product)
                     return new HttpException('Could not find product!', HttpStatus.NOT_FOUND)
                 return product
@@ -48,7 +64,23 @@ export class ProductsService {
 
     getProdcutsByOwner = async (ownerId: string) => {
         try {
-            const products = await this.productModel.find({ ownerId }).exec()
+            const products = await this.productModel
+                .aggregate(
+                    [
+
+                        {
+                            $lookup: {
+                                from: this.productModel.collection.name,
+                                localField: 'ownerId',
+                                foreignField: '_id',
+                                as: 'test'
+                            }
+                        }
+                    ]
+                )
+                // .find({ ownerId })
+                .exec()
+
             return products
         } catch (error) {
             return new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR)
